@@ -31,22 +31,27 @@ def get_grads(variables):
     return [var.grad.clone() for var in variables]
 
 
-def check_forward(variables, with_cuda, verbose):
+def check_forward(variables, options):
     baseline_values = python.lltm_baseline.LLTMFunction.apply(*variables)
     cpp_values = cpp.lltm.LLTMFunction.apply(*variables)
 
     print('Forward: Baseline (Python) vs. C++ ... ', end='')
-    check_equal(baseline_values, cpp_values, verbose)
+    check_equal(baseline_values, cpp_values, options.verbose)
     print('Ok')
 
-    if with_cuda:
+    if options.cuda:
         cuda_values = cuda.lltm.LLTMFunction.apply(*variables)
         print('Forward: Baseline (Python) vs. CUDA ... ', end='')
-        check_equal(baseline_values, cuda_values, verbose)
+        check_equal(baseline_values, cuda_values, options.verbose)
         print('Ok')
 
+    if options.dpcpp:
+        dpcpp_values = dpcpp.lltm.LLTMFunction.apply(*variables)
+        print('Forward: Baseline (Python) vs. DPC++ ... ', end='')
+        check_equal(baseline_values, dpcpp_values, options.verbose)
+        print('Ok')
 
-def check_backward(variables, with_cuda, verbose):
+def check_backward(variables, options):
     baseline_values = python.lltm_baseline.LLTMFunction.apply(*variables)
     (baseline_values[0] + baseline_values[1]).sum().backward()
     grad_baseline = get_grads(variables)
@@ -58,19 +63,28 @@ def check_backward(variables, with_cuda, verbose):
     grad_cpp = get_grads(variables)
 
     print('Backward: Baseline (Python) vs. C++ ... ', end='')
-    check_equal(grad_baseline, grad_cpp, verbose)
+    check_equal(grad_baseline, grad_cpp, options.verbose)
     print('Ok')
 
-    if with_cuda:
+    if options.cuda:
         zero_grad(variables)
         cuda_values = cuda.lltm.LLTMFunction.apply(*variables)
         (cuda_values[0] + cuda_values[1]).sum().backward()
         grad_cuda = get_grads(variables)
 
         print('Backward: Baseline (Python) vs. CUDA ... ', end='')
-        check_equal(grad_baseline, grad_cuda, verbose)
+        check_equal(grad_baseline, grad_cuda, options.verbose)
         print('Ok')
 
+    if options.dpcpp:
+        zero_grad(variables)
+        dpcpp_values = dpcpp.lltm.LLTMFunction.apply(*variables)
+        (dpcpp_values[0] + dpcpp_values[1]).sum().backward()
+        grad_dpcpp = get_grads(variables)
+
+        print('Backward: Baseline (Python) vs. DPC++ ... ', end='')
+        check_equal(grad_baseline, grad_dpcpp, options.verbose)
+        print('Ok')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('direction', choices=['forward', 'backward'], nargs='+')
@@ -78,6 +92,7 @@ parser.add_argument('-b', '--batch-size', type=int, default=3)
 parser.add_argument('-f', '--features', type=int, default=17)
 parser.add_argument('-s', '--state-size', type=int, default=5)
 parser.add_argument('-c', '--cuda', action='store_true')
+parser.add_argument('-dpc', '--dpcpp', action='store_true')
 parser.add_argument('-v', '--verbose', action='store_true')
 options = parser.parse_args()
 
@@ -86,6 +101,9 @@ if options.cuda:
     device = torch.device("cuda")
 else:
     device = torch.device("cpu")
+
+if options.dpcpp:
+    import dpcpp.lltm
 
 kwargs = {'dtype': torch.float64,
           'device': device,
@@ -101,7 +119,7 @@ b = torch.randn(1, 3 * options.state_size, **kwargs)
 variables = [X, W, b, h, C]
 
 if 'forward' in options.direction:
-    check_forward(variables, options.cuda, options.verbose)
+    check_forward(variables, options)
 
 if 'backward' in options.direction:
-    check_backward(variables, options.cuda, options.verbose)
+    check_backward(variables, options)
