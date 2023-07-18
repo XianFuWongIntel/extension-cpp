@@ -25,8 +25,8 @@ __dpct_inline__ scalar_t elu(scalar_t z, scalar_t alpha = 1.0) {
   DPCT1064:4: Migrated fmaxf call is used in a macro definition and is not valid
   for all macro uses. Adjust the code.
   */
-  return sycl::fmax((float)(0.0), (float)z) +
-         sycl::fmin((float)(0.0), (float)(alpha * (sycl::exp(z) - 1.0)));
+  return fmax((0.0), z) +
+         sycl::fmin((0.0), (alpha * (sycl::exp(z) - 1.0)));
 }
 
 template <typename scalar_t>
