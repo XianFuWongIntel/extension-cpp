@@ -2,16 +2,14 @@
 
 #include <vector>
 
-// CUDA forward declarations
-
-std::vector<torch::Tensor> lltm_cuda_forward(
+std::vector<torch::Tensor> lltm_dpcpp_forward(
     torch::Tensor input,
     torch::Tensor weights,
     torch::Tensor bias,
     torch::Tensor old_h,
     torch::Tensor old_cell);
 
-std::vector<torch::Tensor> lltm_cuda_backward(
+std::vector<torch::Tensor> lltm_dpcpp_backward(
     torch::Tensor grad_h,
     torch::Tensor grad_cell,
     torch::Tensor new_cell,
@@ -25,9 +23,9 @@ std::vector<torch::Tensor> lltm_cuda_backward(
 // C++ interface
 
 // NOTE: AT_ASSERT has become AT_CHECK on master after 0.4.
-#define CHECK_CUDA(x) AT_ASSERTM(x.type().is_cuda(), #x " must be a CUDA tensor")
+#define CHECK_CPU(x) AT_ASSERTM(!x.type().is_cuda(), #x " must be a CPU tensor")
 #define CHECK_CONTIGUOUS(x) AT_ASSERTM(x.is_contiguous(), #x " must be contiguous")
-#define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
+#define CHECK_INPUT(x) CHECK_CPU(x);
 
 std::vector<torch::Tensor> lltm_forward(
     torch::Tensor input,
@@ -41,7 +39,7 @@ std::vector<torch::Tensor> lltm_forward(
   CHECK_INPUT(old_h);
   CHECK_INPUT(old_cell);
 
-  return lltm_cuda_forward(input, weights, bias, old_h, old_cell);
+  return lltm_dpcpp_forward(input, weights, bias, old_h, old_cell);
 }
 
 std::vector<torch::Tensor> lltm_backward(
@@ -63,7 +61,7 @@ std::vector<torch::Tensor> lltm_backward(
   CHECK_INPUT(gate_weights);
   CHECK_INPUT(weights);
 
-  return lltm_cuda_backward(
+  return lltm_dpcpp_backward(
       grad_h,
       grad_cell,
       new_cell,
@@ -76,6 +74,6 @@ std::vector<torch::Tensor> lltm_backward(
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("forward", &lltm_forward, "LLTM forward (CUDA)");
-  m.def("backward", &lltm_backward, "LLTM backward (CUDA)");
+  m.def("forward", &lltm_forward, "LLTM forward (DPCPP)");
+  m.def("backward", &lltm_backward, "LLTM backward (DPCPP)");
 }

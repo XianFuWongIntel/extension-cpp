@@ -37,14 +37,14 @@ __dpct_inline__ scalar_t d_elu(scalar_t z, scalar_t alpha = 1.0) {
 }
 
 template <typename scalar_t>
-void lltm_cuda_forward_kernel(
-    const torch::PackedTensorAccessor<scalar_t,3,torch::RestrictPtrTraits,size_t> gates,
-    const torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> old_cell,
-    torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> new_h,
-    torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> new_cell,
-    torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> input_gate,
-    torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> output_gate,
-    torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> candidate_cell,
+void lltm_dpcpp_forward_kernel(
+    const torch::PackedTensorAccessor32<scalar_t,3> gates,
+    const torch::PackedTensorAccessor32<scalar_t,2> old_cell,
+    torch::PackedTensorAccessor32<scalar_t,2> new_h,
+    torch::PackedTensorAccessor32<scalar_t,2> new_cell,
+    torch::PackedTensorAccessor32<scalar_t,2> input_gate,
+    torch::PackedTensorAccessor32<scalar_t,2> output_gate,
+    torch::PackedTensorAccessor32<scalar_t,2> candidate_cell,
     const sycl::nd_item<3> &item_ct1) {
   //batch index
   const int n = item_ct1.get_group(1);
@@ -62,16 +62,16 @@ void lltm_cuda_forward_kernel(
 }
 
 template <typename scalar_t>
-void lltm_cuda_backward_kernel(
-    torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> d_old_cell,
-    torch::PackedTensorAccessor<scalar_t,3,torch::RestrictPtrTraits,size_t> d_gates,
-    const torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> grad_h,
-    const torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> grad_cell,
-    const torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> new_cell,
-    const torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> input_gate,
-    const torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> output_gate,
-    const torch::PackedTensorAccessor<scalar_t,2,torch::RestrictPtrTraits,size_t> candidate_cell,
-    const torch::PackedTensorAccessor<scalar_t,3,torch::RestrictPtrTraits,size_t> gate_weights,
+void lltm_dpcpp_backward_kernel(
+    torch::PackedTensorAccessor32<scalar_t,2> d_old_cell,
+    torch::PackedTensorAccessor32<scalar_t,3> d_gates,
+    const torch::PackedTensorAccessor32<scalar_t,2> grad_h,
+    const torch::PackedTensorAccessor32<scalar_t,2> grad_cell,
+    const torch::PackedTensorAccessor32<scalar_t,2> new_cell,
+    const torch::PackedTensorAccessor32<scalar_t,2> input_gate,
+    const torch::PackedTensorAccessor32<scalar_t,2> output_gate,
+    const torch::PackedTensorAccessor32<scalar_t,2> candidate_cell,
+    const torch::PackedTensorAccessor32<scalar_t,3> gate_weights,
     const sycl::nd_item<3> &item_ct1) {
   //batch index
   const int n = item_ct1.get_group(1);
@@ -104,7 +104,7 @@ void lltm_cuda_backward_kernel(
 }
 } // namespace
 
-std::vector<torch::Tensor> lltm_cuda_forward(
+std::vector<torch::Tensor> lltm_dpcpp_forward(
     torch::Tensor input,
     torch::Tensor weights,
     torch::Tensor bias,
@@ -132,7 +132,7 @@ std::vector<torch::Tensor> lltm_cuda_forward(
   migration result may be incorrect. You need to verify the definition of the
   macro.
   */
-  AT_DISPATCH_FLOATING_TYPES(gates.type(), "lltm_forward_cuda", ([&] {
+  AT_DISPATCH_FLOATING_TYPES(gates.type(), "lltm_forward_dpcpp", ([&] {
     /*
     DPCT1049:1: The work-group size passed to the SYCL kernel may exceed the
     limit. To get the device limit, query info::device::max_work_group_size.
@@ -141,36 +141,31 @@ std::vector<torch::Tensor> lltm_cuda_forward(
     dpct::get_default_queue().submit([&](sycl::handler &cgh) {
       auto gates_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct0 =
           gates
-              .packed_accessor<scalar_t, 3, torch::RestrictPtrTraits, size_t>();
+              .packed_accessor32<scalar_t, 3>();
       auto
           old_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct1 =
-              old_cell.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                       size_t>();
+              old_cell.packed_accessor32<scalar_t, 2>();
       auto new_h_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct2 =
           new_h
-              .packed_accessor<scalar_t, 2, torch::RestrictPtrTraits, size_t>();
+              .packed_accessor32<scalar_t, 2>();
       auto
           new_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct3 =
-              new_cell.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                       size_t>();
+              new_cell.packed_accessor32<scalar_t, 2>();
       auto
           input_gate_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct4 =
-              input_gate.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                         size_t>();
+              input_gate.packed_accessor32<scalar_t, 2>();
       auto
           output_gate_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct5 =
-              output_gate.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                          size_t>();
+              output_gate.packed_accessor32<scalar_t, 2>();
       auto
           candidate_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct6 =
-              candidate_cell.packed_accessor<
-                  scalar_t, 2, torch::RestrictPtrTraits, size_t>();
+              candidate_cell.packed_accessor32<scalar_t, 2>();
 
       cgh.parallel_for(
           sycl::nd_range<3>(blocks * sycl::range<3>(1, 1, threads),
                             sycl::range<3>(1, 1, threads)),
           [=](sycl::nd_item<3> item_ct1) {
-            lltm_cuda_forward_kernel<scalar_t>(
+            lltm_dpcpp_forward_kernel<scalar_t>(
                 gates_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct0,
                 old_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct1,
                 new_h_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct2,
@@ -186,7 +181,7 @@ std::vector<torch::Tensor> lltm_cuda_forward(
   return {new_h, new_cell, input_gate, output_gate, candidate_cell, X, gates};
 }
 
-std::vector<torch::Tensor> lltm_cuda_backward(
+std::vector<torch::Tensor> lltm_dpcpp_backward(
     torch::Tensor grad_h,
     torch::Tensor grad_cell,
     torch::Tensor new_cell,
@@ -211,7 +206,7 @@ std::vector<torch::Tensor> lltm_cuda_backward(
   migration result may be incorrect. You need to verify the definition of the
   macro.
   */
-  AT_DISPATCH_FLOATING_TYPES(X.type(), "lltm_forward_cuda", ([&] {
+  AT_DISPATCH_FLOATING_TYPES(X.type(), "lltm_backward_dpcpp", ([&] {
     /*
     DPCT1049:3: The work-group size passed to the SYCL kernel may exceed the
     limit. To get the device limit, query info::device::max_work_group_size.
@@ -220,43 +215,37 @@ std::vector<torch::Tensor> lltm_cuda_backward(
     dpct::get_default_queue().submit([&](sycl::handler &cgh) {
       auto
           d_old_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct0 =
-              d_old_cell.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                         size_t>();
+              d_old_cell.packed_accessor32<scalar_t, 2>();
       auto d_gates_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct1 =
           d_gates
-              .packed_accessor<scalar_t, 3, torch::RestrictPtrTraits, size_t>();
+              .packed_accessor32<scalar_t, 3>();
       auto grad_h_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct2 =
           grad_h
-              .packed_accessor<scalar_t, 2, torch::RestrictPtrTraits, size_t>();
+              .packed_accessor32<scalar_t, 2>();
       auto
           grad_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct3 =
-              grad_cell.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                        size_t>();
+              grad_cell.packed_accessor32<scalar_t, 2>();
       auto
           new_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct4 =
-              new_cell.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                       size_t>();
+              new_cell.packed_accessor32<scalar_t, 2>();
       auto
           input_gate_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct5 =
-              input_gate.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                         size_t>();
+              input_gate.packed_accessor32<scalar_t, 2>();
       auto
           output_gate_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct6 =
-              output_gate.packed_accessor<scalar_t, 2, torch::RestrictPtrTraits,
-                                          size_t>();
+              output_gate.packed_accessor32<scalar_t, 2>();
       auto
           candidate_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct7 =
-              candidate_cell.packed_accessor<
-                  scalar_t, 2, torch::RestrictPtrTraits, size_t>();
+              candidate_cell.packed_accessor32<scalar_t, 2>();
       auto gates_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct8 =
           gates
-              .packed_accessor<scalar_t, 3, torch::RestrictPtrTraits, size_t>();
+              .packed_accessor32<scalar_t, 3>();
 
       cgh.parallel_for(
           sycl::nd_range<3>(blocks * sycl::range<3>(1, 1, threads),
                             sycl::range<3>(1, 1, threads)),
           [=](sycl::nd_item<3> item_ct1) {
-            lltm_cuda_backward_kernel<scalar_t>(
+            lltm_dpcpp_backward_kernel<scalar_t>(
                 d_old_cell_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct0,
                 d_gates_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct1,
                 grad_h_packed_accessor_scalar_t_torch_RestrictPtrTraits_size_t_ct2,
