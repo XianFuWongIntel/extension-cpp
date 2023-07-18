@@ -176,6 +176,7 @@ std::vector<torch::Tensor> lltm_dpcpp_forward(
                 item_ct1);
           });
     });
+    dpct::get_default_queue().wait();
                              }));
 
   return {new_h, new_cell, input_gate, output_gate, candidate_cell, X, gates};
@@ -258,6 +259,7 @@ std::vector<torch::Tensor> lltm_dpcpp_backward(
                 item_ct1);
           });
     });
+    dpct::get_default_queue().wait();
                              }));
 
   auto d_gate_weights = d_gates.flatten(1, 2);
