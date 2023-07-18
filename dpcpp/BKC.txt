@@ -1,0 +1,26 @@
+//
+// NOTE: 
+// You're advised to run this with 'conda' or virtual envs as we'll replace the existing 'torch' package
+// CUDA will be disabled with DPCPP enabled
+//
+
+// 0. Git clone and install basic packages
+git clone -b dpcpp-ext https://github.com/XianFuWongIntel/extension-cpp
+cd extension-cpp
+pip install -r requirements.txt
+
+// 1. Install CPP extension (to run with CPU extension)
+cd cpp 
+python setup.py install
+cd ../
+
+// 2. Install DPCPP extension
+cd dpcpp 
+pip install -r requirements.txt && python setup.py install
+cd ../
+
+// 3. Test!
+python benchmark.py dpcpp
+python grad_check.py dpcpp
+python check.py forward -dpc
+python check.py backward -dpc
