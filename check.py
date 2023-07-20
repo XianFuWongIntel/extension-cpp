@@ -86,6 +86,16 @@ def check_backward(variables, options):
         check_equal(grad_baseline, grad_dpcpp, options.verbose)
         print('Ok')
 
+    if options.xpu:
+        zero_grad(variables)
+        xpu_values = xpu.lltm.LLTMFunction.apply(*variables)
+        (xpu_values[0] + xpu_values[1]).sum().backward()
+        grad_xpu = get_grads(variables)
+
+        print('Backward: Baseline (Python) vs. XPU ... ', end='')
+        check_equal(grad_baseline, grad_xpu, options.verbose)
+        print('Ok')
+
 parser = argparse.ArgumentParser()
 parser.add_argument('direction', choices=['forward', 'backward'], nargs='+')
 parser.add_argument('-b', '--batch-size', type=int, default=3)
@@ -93,17 +103,21 @@ parser.add_argument('-f', '--features', type=int, default=17)
 parser.add_argument('-s', '--state-size', type=int, default=5)
 parser.add_argument('-c', '--cuda', action='store_true')
 parser.add_argument('-dpc', '--dpcpp', action='store_true')
+parser.add_argument('-x', '--xpu', action='store_true')
 parser.add_argument('-v', '--verbose', action='store_true')
 options = parser.parse_args()
 
 if options.cuda:
     import cuda.lltm
     device = torch.device("cuda")
+elif options.xpu:
+    import intel_extension_for_pytorch
+    import xpu.lltm
+    device = torch.device("xpu")
 else:
     device = torch.device("cpu")
-
-if options.dpcpp:
-    import dpcpp.lltm
+    if options.dpcpp:
+        import dpcpp.lltm
 
 kwargs = {'dtype': torch.float64,
           'device': device,

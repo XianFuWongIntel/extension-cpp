@@ -10,7 +10,7 @@ import torch
 TIME_SCALES = {'s': 1, 'ms': 1000, 'us': 1000000}
 
 parser = argparse.ArgumentParser()
-parser.add_argument('example', choices=['py', 'cpp', 'cuda', 'dpcpp'])
+parser.add_argument('example', choices=['py', 'cpp', 'cuda', 'dpcpp', 'xpu'])
 parser.add_argument('-b', '--batch-size', type=int, default=16)
 parser.add_argument('-f', '--features', type=int, default=32)
 parser.add_argument('-s', '--state-size', type=int, default=128)
@@ -20,17 +20,23 @@ parser.add_argument('-c', '--cuda', action='store_true')
 parser.add_argument('-d', '--double', action='store_true')
 options = parser.parse_args()
 
+device = torch.device("cpu")
+
 if options.example == 'py':
     from python.lltm import LLTM
 elif options.example == 'cpp':
     from cpp.lltm import LLTM
 elif options.example == 'dpcpp':
     from dpcpp.lltm import LLTM
+elif options.example == 'xpu':
+    import intel_extension_for_pytorch
+    from xpu.lltm import LLTM
+    device = torch.device("xpu")
 elif options.example == 'cuda':
     from cuda.lltm import LLTM
+    device = torch.device("cuda")
     options.cuda = True
 
-device = torch.device("cuda") if options.cuda else torch.device("cpu")
 dtype = torch.float64 if options.double else torch.float32
 
 kwargs = {'dtype': dtype,
